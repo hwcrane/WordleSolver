@@ -43,12 +43,7 @@ def suggest_word(wordlist):
 def slim_down_words(input_word, letter_results, wordlist):
     for (i, letter) in enumerate(input_word):
         if letter_results[i] == 'W':
-            already_confirmed = False
-            for j, letter in enumerate(input_word):
-                if letter == input_word[i] and i != j and letter_results[j] == "C":
-                    already_confirmed = True
-            if not already_confirmed:
-                wordlist = wrong_letters(letter, wordlist)
+            wordlist = wrong_letters(letter, wordlist)
         elif letter_results[i] == 'M':
             wordlist = missplaced_letters(letter, i, wordlist)
         elif letter_results[i] == 'C':
@@ -57,7 +52,7 @@ def slim_down_words(input_word, letter_results, wordlist):
 
 
 def wrong_letters(letter, wordlist):
-    return list(filter(lambda x: letter not in x, wordlist))
+    return [word for word in wordlist if letter not in word]
 
 
 def missplaced_letters(letter, index, wordlist):
