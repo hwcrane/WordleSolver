@@ -1,9 +1,39 @@
+import matplotlib.pyplot as plt
+import math
+
+from numpy.core.fromnumeric import mean
+
+
 def load_words(filename):
     with open(filename) as word_file:
-        words = list(word_file.read().split())
+        words = word_file.read().split()
 
-    five_letter_words = list(filter(lambda x: len(x) == 5, words))
+    five_letter_words = [word for word in words if len(word) == 5]
     return five_letter_words
+
+
+def calculate_word_entropy(wordlist, word):
+    options = {
+        l1+l2+l3+l4+l5: 0 for l1 in 'CMW'for l2 in 'CMW'for l3 in 'CMW'for l4 in 'CMW'for l5 in 'CMW'}
+    for w in wordlist:
+        options[get_pattern_from_word(word, w)] += 1
+
+    probabilites = [(v/len(wordlist)) * -math.log2(v/len(wordlist))
+                    for v in options.values() if v > 0]
+
+    return sum(probabilites)
+
+
+def get_pattern_from_word(word_to_try, actual_word):
+    pattern = ""
+    for i, letter in enumerate(word_to_try):
+        if letter == actual_word[i]:
+            pattern += 'C'
+        elif letter in actual_word:
+            pattern += 'M'
+        else:
+            pattern += 'W'
+    return pattern
 
 
 def generate_default_letter_dict():
@@ -14,55 +44,74 @@ def generate_default_letter_dict():
     return {l: [0 for _ in range(5)] for l in 'abcdefghijklmnopqrstuvwxyz'}
 
 
-def generate_word_options(letter_dict, word):
-    # Generate all outcomes irrespective if posible
-    # Options:
-    #   C = Confirmed
-    #   W = Wrong
-    #   M = Missplaced
-
-    options = [
-        l1+l2+l3+l4+l5 for l1 in 'CWM' for l2 in 'CWM' for l3 in 'CWM' for l4 in 'CWM' for l5 in 'CWM']
-
-    # Filter for only possible outcomes
-    filtered_options = [
-        x for x in options if is_option_possible(word, x, letter_dict)]
-
-    return filtered_options
+def get_word_entropies(wordlist):
+    return [(word, calculate_word_entropy(wordlist, word)) for word in wordlist]
 
 
-def is_option_possible(word, option, letter_dict):
-    valid = True
+def update_letter_dict(pattern, word, letter_dict):
+    for i, pattern_part in enumerate(pattern):
+        if pattern_part == "C":
+            for l in letter_dict.keys():
+                letter_dict[l][i] = -1
+            arr = [-1, -1, -1, -1, -1]
+            arr[i] = 2
+            letter_dict[word[i]] = arr
+
+        elif pattern_part == "W":
+            letter_dict[word[i]] = [-1, -1, -1, -1, -1]
+
+        elif pattern_part == "M":
+            arr = letter_dict[word[i]]
+            for j in range(len(arr)):
+                arr[j] = 1 if j != i and arr[j] != -1 else -1
+            letter_dict[word[i]] = arr
+
+    return letter_dict
+
+
+def update_wordlist(wordlist, letter_dict):
+    return [word for word in wordlist if word_match_dict(word, letter_dict)]
+
+
+def word_match_dict(word, letter_dict):
     for i, letter in enumerate(word):
-        if option[i] == 'C':
-            # Valid if letter is not already confirmed incorrect
-            valid = False if letter_dict[letter][i] == -1 else valid
+        if letter_dict[letter][i] == -1:
+            return False
 
-            # Valid if position is not already confirmed to a differnt letter
-            valid = False if any(
-                letter_dict[l][i] == 2 and letter != l for l in "abcdefghijklmnopqrstuvwxyz") else valid
-
-            # Valid if letter is not already confirmed in another position
-            valid = False if any(
-                letter_dict[letter][j] == 2 and i != j for j in range(5)) else valid
-
-        elif option[i] == 'W':
-            # Valid if letter is not already confirmed or possible in another position
-            valid = False if any(
-                letter_dict[letter][j] > 0 and i != j for j in range(5)) else valid
-
-        elif option[i] == 'M':
-            # Valid if letter is not already confirmed in another position
-            valid = False if any(
-                letter_dict[letter][j] == 2 and i != j for j in range(5)) else valid
-
-            # Valid if letter is not already confirmed incorrect
-            valid = False if letter_dict[letter][i] == -1 else valid
-
-    return valid
+    return True
 
 
 if __name__ == '__main__':
     wordlist = load_words("words.txt")
     letter_dict = generate_default_letter_dict()
-    filtered_wordlist = generate_word_options(letter_dict, wordlist[0])
+
+    print("Try 'crane'")
+
+    # get pattern
+    pattern = input("enter pattern").upper()
+
+    # Filter out words that do not match pattern
+    letter_dict = update_letter_dict(
+        pattern, "crane", letter_dict)
+    wordlist = update_wordlist(wordlist, letter_dict)
+
+    while pattern != "CCCCC":
+
+        # Calculate Word Entropies
+        word_entropies = get_word_entropies(wordlist)
+
+        # Sort Word entropies to find max
+        sorted_word_entropies = sorted([(k, v)
+                                        for (k, v) in word_entropies],
+                                       key=lambda x: x[1], reverse=True)
+
+        # Suggest word with max entropy
+        print(f"Try \'{sorted_word_entropies[0][0]}\'")
+
+        # get pattern
+        pattern = input("enter pattern").upper()
+
+        # Filter out words that do not match pattern
+        letter_dict = update_letter_dict(
+            pattern, sorted_word_entropies[0][0], letter_dict)
+        wordlist = update_wordlist(wordlist, letter_dict)
